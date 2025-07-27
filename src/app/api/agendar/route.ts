@@ -3,28 +3,36 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { cookies } from 'next/headers';
+import { Agendamento } from "@/lib/types"; // Importamos o tipo
 
 export async function POST(request: Request) {
-  // O bloco 'try' envolve toda a operação para garantir que qualquer erro seja capturado.
   try {
-    // 1. Inicializa a conexão com o Supabase de forma segura no servidor.
-    const cookieStore = cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = createClient(cookies());
 
-    // 2. Extrai e valida os dados recebidos do formulário.
-    const { serviceId, dateTime, clientName, clientPhone, serviceDuration } = await request.json();
+    // Agora recebemos o ID do horário disponível
+    const { horarioDisponivelId, serviceId, clientName, clientPhone, serviceDuration } = await request.json();
 
-    if (!serviceId || !dateTime || !clientName || !clientPhone || !serviceDuration) {
+    if (!horarioDisponivelId || !serviceId || !clientName || !clientPhone || !serviceDuration) {
       return NextResponse.json({ error: "Dados incompletos para o agendamento." }, { status: 400 });
     }
 
-    // 3. Prepara os dados para inserção no banco de dados.
-    const horario_inicio = new Date(dateTime);
-    // Calcula o horário de término somando a duração do serviço.
-    const horario_fim = new Date(horario_inicio.getTime() + serviceDuration * 60000); 
-    
-    // 4. Insere o novo agendamento na tabela 'agendamentos'.
-    const { data, error } = await supabase
+    // 1. Busca o horário de início do slot selecionado
+    const { data: horarioData, error: horarioError } = await supabase
+      .from('horarios_disponiveis')
+      .select('horario_inicio')
+      .eq('id', horarioDisponivelId)
+      .eq('status', 'disponivel') // Garante que só pode agendar em um horário disponível
+      .single();
+
+    if (horarioError || !horarioData) {
+      throw new Error("Horário não encontrado ou já reservado. Por favor, atualize a página.");
+    }
+
+    const horario_inicio = new Date(horarioData.horario_inicio);
+    const horario_fim = new Date(horario_inicio.getTime() + serviceDuration * 60000);
+
+    // 2. Cria o novo agendamento
+    const { data: agendamentoData, error: agendamentoError } = await supabase
       .from("agendamentos")
       .insert([{
         id_servico: serviceId,
@@ -35,29 +43,28 @@ export async function POST(request: Request) {
         status: 'confirmado',
       }])
       .select()
-      .single(); // .single() para retornar o objeto recém-criado
+      .single<Agendamento>(); // Aplica o tipo na resposta
+    
+    if (agendamentoError) throw agendamentoError;
 
-    // 5. Trata erros específicos do Supabase.
-    if (error) {
-      console.error("Erro do Supabase ao inserir agendamento:", error);
-      // Retorna um erro específico se o horário já estiver ocupado (conflito de chave única)
-      if (error.code === '23505') { 
-        return NextResponse.json({ error: "Este horário já foi reservado por outra pessoa." }, { status: 409 });
-      }
-      // Lança o erro para ser capturado pelo 'catch' principal.
-      throw error;
+    // 3. Atualiza o status do horário para 'reservado'
+    const { error: updateError } = await supabase
+      .from('horarios_disponiveis')
+      .update({ status: 'reservado' })
+      .eq('id', horarioDisponivelId);
+
+    if (updateError) {
+      // Se a atualização falhar, idealmente deveríamos reverter o agendamento (transação)
+      // Por simplicidade, vamos apenas logar o erro por enquanto.
+      console.error("Falha ao atualizar o status do horário:", updateError);
     }
 
-    // 6. Retorna uma resposta de sucesso com os dados criados.
-    return NextResponse.json({ message: "Agendamento criado com sucesso!", data }, { status: 201 });
+    return NextResponse.json({ message: "Agendamento realizado com sucesso!", data: agendamentoData }, { status: 201 });
 
-  } catch (error: any) {
-    // 7. Bloco 'catch' genérico que captura QUALQUER erro que ocorrer na função.
-    // Isso garante que uma resposta JSON sempre seja enviada, evitando o erro 'Unexpected end of JSON input'.
-    console.error("Falha crítica na API de agendamento:", error);
-    return NextResponse.json(
-      { error: "Não foi possível criar o agendamento.", details: error.message }, 
-      { status: 500 }
-    );
+  } catch (error) {
+    // Tratamento de erro seguro, sem usar 'any'
+    const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido.";
+    console.error("Falha na API de agendamento:", errorMessage);
+    return NextResponse.json({ error: "Não foi possível criar o agendamento.", details: errorMessage }, { status: 500 });
   }
 }

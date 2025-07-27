@@ -1,27 +1,60 @@
 // types/index.ts
 
-/**
- * Representa um serviço oferecido pelo salão.
- * Corresponde à tabela 'servicos' no Supabase.
- */
-export interface Servico {
-  id: number;
-  nome: string;
-  descricao: string | null; // A descrição pode ser nula
-  preco: number;
-  duracao_minutos: number;
-  created_at: string; // Supabase retorna timestamps como strings ISO 8601
-}
+// ===================================
+// TIPOS ENUM (Status)
+// ===================================
 
 /**
  * Define os possíveis status de um agendamento.
- * Corresponde ao tipo ENUM 'status_agendamento' no Supabase.
+ * Corresponde ao ENUM 'status_agendamento' no Supabase.
  */
 export type StatusAgendamento = 'confirmado' | 'cancelado' | 'concluido';
 
 /**
- * Representa um agendamento no sistema.
- * Corresponde à tabela 'agendamentos' no Supabase.
+ * Define os possíveis status de um horário disponível.
+ * Corresponde ao ENUM 'status_horario' no Supabase.
+ */
+export type StatusHorario = 'disponivel' | 'reservado';
+
+
+// ===================================
+// INTERFACES BASE (Espelham as tabelas do DB)
+// ===================================
+
+/**
+ * Representa a tabela 'profissionais'.
+ */
+export interface Profissional {
+  id: number;
+  nome: string;
+  created_at: string;
+}
+
+/**
+ * Representa a tabela 'servicos'.
+ */
+export interface Servico {
+  id: number;
+  nome: string;
+  descricao: string | null;
+  preco: number;
+  duracao_minutos: number;
+  created_at: string;
+}
+
+/**
+ * Representa a tabela 'horarios_disponiveis'.
+ */
+export interface HorarioDisponivel {
+  id: number;
+  id_profissional: number;
+  horario_inicio: string;
+  status: StatusHorario;
+  created_at: string;
+}
+
+/**
+ * Representa a tabela 'agendamentos'.
  */
 export interface Agendamento {
   id: number;
@@ -33,3 +66,18 @@ export interface Agendamento {
   status: StatusAgendamento;
   created_at: string;
 }
+
+
+// ===================================
+// TIPOS DERIVADOS (Para Consultas e Componentes)
+// ===================================
+
+/**
+ * Representa um agendamento quando ele é retornado com o nome do serviço junto (JOIN).
+ * Usado na página 'meus-agendamentos'.
+ */
+export type AgendamentoComServico = Omit<Agendamento, 'id_servico' | 'horario_fim' | 'telefone_cliente'> & {
+  servicos: {
+    nome: string;
+  } | null; // O serviço pode ter sido deletado, então pode ser nulo.
+};

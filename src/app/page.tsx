@@ -1,36 +1,12 @@
-// app/agendar/page.tsx
+// app/page.tsx
 
-import { BookingForm } from "@/components/forms/BookingForm";
-import { createClient } from "@/lib/supabase/server";
-import { Servico } from "@/lib/types";
-import { cookies } from "next/headers";
+import { redirect } from 'next/navigation';
 
-// Função para buscar os serviços no servidor
-async function getServicos(): Promise<Servico[]> {
-  const cookieStore = cookies();
-  const supabase = createClient(cookieStore);
-
-  const { data, error } = await supabase
-    .from('servicos')
-    .select('*')
-    .order('nome', { ascending: true })
-    .returns<Servico[]>();
-
-  if (error) {
-    console.error("Erro ao buscar serviços:", error);
-    return []; // Retorna um array vazio em caso de erro
-  }
-  return data;
-}
-
-// A página agora é um componente async
-export default async function AgendarPage() {
-  const servicos = await getServicos();
-
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-gray-50">
-      {/* Passamos a lista de serviços como prop para o formulário */}
-      <BookingForm servicos={servicos} />
-    </div>
-  );
+/**
+ * Esta é a página raiz do site.
+ * Sua única função é redirecionar o usuário para a página principal do sistema,
+ * que é '/agendar'. Isso evita erros e melhora a experiência do usuário.
+ */
+export default function HomePage() {
+  redirect('/agendar');
 }

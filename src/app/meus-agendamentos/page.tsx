@@ -4,37 +4,24 @@ import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 
-// Tipo para representar o formato do agendamento quando ele vem com o nome do serviço junto.
-// Idealmente, este tipo estaria no arquivo `types/index.ts`.
 type AgendamentoComServico = {
   id: number;
   horario_inicio: string;
   nome_cliente: string;
   status: 'confirmado' | 'cancelado' | 'concluido';
-  servicos: {
-    nome: string;
-  } | null;
+  servicos: { nome: string; } | null;
 };
 
 export default async function MeusAgendamentosPage() {
   const cookieStore = cookies();
   const supabase = createClient(cookieStore);
 
-  // Busca os agendamentos e o nome do serviço relacionado em uma única consulta
   const { data: agendamentos, error } = await supabase
     .from('agendamentos')
-    .select(`
-      id,
-      horario_inicio,
-      nome_cliente,
-      status,
-      servicos ( nome ) 
-    `)
+    .select(`id, horario_inicio, nome_cliente, status, servicos ( nome )`)
     .order('horario_inicio', { ascending: false })
-    .returns<AgendamentoComServico[]>(); // Aplica a tipagem na resposta
+    .returns<AgendamentoComServico[]>();
 
   if (error) {
     return <p className="text-center text-red-500 p-8">Ocorreu um erro ao carregar os agendamentos.</p>;
@@ -42,12 +29,8 @@ export default async function MeusAgendamentosPage() {
   
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Meus Agendamentos</h1>
-        <Link href="/agendar">
-          <Button>Novo Agendamento</Button>
-        </Link>
-      </div>
+      {/* O antigo div com o botão "Novo Agendamento" foi removido daqui. */}
+      <h1 className="text-2xl font-bold mb-6">Meus Agendamentos</h1>
       
       <div className="border rounded-lg">
         <Table>
@@ -63,10 +46,7 @@ export default async function MeusAgendamentosPage() {
             {agendamentos.map((agendamento) => (
               <TableRow key={agendamento.id}>
                 <TableCell className="font-medium">
-                  {new Date(agendamento.horario_inicio).toLocaleString('pt-BR', {
-                    dateStyle: 'short',
-                    timeStyle: 'short',
-                  })}
+                  {new Date(agendamento.horario_inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
                 </TableCell>
                 <TableCell>{agendamento.nome_cliente}</TableCell>
                 <TableCell>{agendamento.servicos?.nome ?? 'Serviço não encontrado'}</TableCell>
