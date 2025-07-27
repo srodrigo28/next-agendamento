@@ -4,14 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-
-type AgendamentoComServico = {
-  id: number;
-  horario_inicio: string;
-  nome_cliente: string;
-  status: 'confirmado' | 'cancelado' | 'concluido';
-  servicos: { nome: string; } | null;
-};
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AgendamentoComServico } from "@/lib/types";
 
 export default async function MeusAgendamentosPage() {
   const cookieStore = cookies();
@@ -29,14 +23,14 @@ export default async function MeusAgendamentosPage() {
   
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
-      {/* O antigo div com o botão "Novo Agendamento" foi removido daqui. */}
       <h1 className="text-2xl font-bold mb-6">Meus Agendamentos</h1>
       
-      <div className="border rounded-lg">
+      {/* Tabela para Desktop */}
+      <div className="hidden md:block border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[200px]">Data e Hora</TableHead>
+              <TableHead>Data e Hora</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>Serviço</TableHead>
               <TableHead className="text-right">Status</TableHead>
@@ -45,26 +39,42 @@ export default async function MeusAgendamentosPage() {
           <TableBody>
             {agendamentos.map((agendamento) => (
               <TableRow key={agendamento.id}>
-                <TableCell className="font-medium">
-                  {new Date(agendamento.horario_inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-                </TableCell>
+                <TableCell>{new Date(agendamento.horario_inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</TableCell>
                 <TableCell>{agendamento.nome_cliente}</TableCell>
-                <TableCell>{agendamento.servicos?.nome ?? 'Serviço não encontrado'}</TableCell>
-                <TableCell className="text-right">
-                   <Badge variant={agendamento.status === 'confirmado' ? 'default' : 'secondary'}>
-                      {agendamento.status}
-                   </Badge>
-                </TableCell>
+                <TableCell>{agendamento.servicos?.nome ?? 'N/A'}</TableCell>
+                <TableCell className="text-right"><Badge>{agendamento.status}</Badge></TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
-        {agendamentos.length === 0 && (
-          <div className="text-center p-8 text-sm text-gray-500">
-            Nenhum agendamento encontrado.
-          </div>
-        )}
       </div>
+
+      {/* Lista de Cards para Mobile */}
+      <div className="md:hidden space-y-4">
+        {agendamentos.map((agendamento) => (
+          <Card key={agendamento.id}>
+            <CardHeader>
+              <CardTitle className="text-base">{agendamento.nome_cliente}</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {new Date(agendamento.horario_inicio).toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'short' })}
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-1 text-sm">
+              <p><strong>Serviço:</strong> {agendamento.servicos?.nome ?? 'N/A'}</p>
+              <div className="flex justify-between items-center pt-2">
+                <strong>Status:</strong>
+                <Badge>{agendamento.status}</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {agendamentos.length === 0 && (
+        <div className="text-center p-8 text-sm text-gray-500">
+          Nenhum agendamento encontrado.
+        </div>
+      )}
     </div>
   );
 }

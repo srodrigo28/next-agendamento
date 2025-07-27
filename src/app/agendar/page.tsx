@@ -22,7 +22,7 @@ export default async function AgendarPage() {
 
   return (
     // O antigo <header> com o link foi removido daqui.
-    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-gray-50">
+    <div className="min-h-screen w-full flex mt-10 justify-center p-4">
       <BookingForm servicos={servicos} profissionais={profissionais} />
     </div>
   );
