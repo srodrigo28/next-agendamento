@@ -1,5 +1,5 @@
 // components/forms/BookingForm.tsx
-"use client"
+"use client";
 
 import { useState, useEffect } from 'react';
 import { Servico, Profissional, HorarioDisponivel } from "@/lib/types";
@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { CalendarDays, Clock, User, Scissors } from 'lucide-react';
 
 interface BookingFormProps {
   servicos: Servico[];
@@ -16,7 +18,6 @@ interface BookingFormProps {
 }
 
 export function BookingForm({ servicos, profissionais }: BookingFormProps) {
-  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     professionalId: null as string | null,
     service: null as Servico | null,
@@ -27,6 +28,7 @@ export function BookingForm({ servicos, profissionais }: BookingFormProps) {
   });
   const [horariosDisponiveis, setHorariosDisponiveis] = useState<HorarioDisponivel[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDateModalOpen, setIsDateModalOpen] = useState(false);
 
   useEffect(() => {
     if (!formData.date || !formData.professionalId) return;
@@ -40,13 +42,9 @@ export function BookingForm({ servicos, profissionais }: BookingFormProps) {
       });
   }, [formData.date, formData.professionalId]);
 
-  // ==================================================================
-  // A CORREÇÃO ESTÁ AQUI
-  // ==================================================================
   const handleFormChange = <T extends keyof typeof formData>(key: T, value: (typeof formData)[T]) => {
     setFormData(prev => {
       const newState = { ...prev, [key]: value };
-      // Reseta o horário APENAS se o profissional, serviço ou data mudarem.
       if (key === 'professionalId' || key === 'service' || key === 'date') {
         newState.horarioDisponivel = null;
       }
@@ -57,15 +55,12 @@ export function BookingForm({ servicos, profissionais }: BookingFormProps) {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
-
     const { horarioDisponivel, service, clientName, clientPhone } = formData;
-
     if (!horarioDisponivel || !service || !clientName || !clientPhone) {
       alert("Por favor, preencha todos os campos.");
       setIsLoading(false);
       return;
     }
-
     try {
       const response = await fetch('/api/agendar', {
         method: 'POST',
@@ -78,17 +73,16 @@ export function BookingForm({ servicos, profissionais }: BookingFormProps) {
           serviceDuration: service.duracao_minutos,
         }),
       });
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Ocorreu um erro ao agendar.");
       }
-      
       alert("Agendamento realizado com sucesso!");
       setHorariosDisponiveis(prev => prev.filter(h => h.id !== horarioDisponivel.id));
-      setFormData(prev => ({ ...prev, horarioDisponivel: null, clientName: '', clientPhone: '' }));
-      setStep(1); // Volta para a primeira etapa após o sucesso
-
+      setFormData({
+        professionalId: null, service: null, date: new Date(),
+        horarioDisponivel: null, clientName: '', clientPhone: ''
+      });
     } catch (error) {
       alert((error as Error).message);
     } finally {
@@ -96,83 +90,96 @@ export function BookingForm({ servicos, profissionais }: BookingFormProps) {
     }
   };
 
-  // Lógica dos botões de navegação do wizard
-  const nextStep = () => setStep(s => s + 1);
-  const prevStep = () => setStep(s => s - 1);
-
-  const isNextDisabled = () => {
-    if (step === 1) return !formData.professionalId || !formData.service;
-    if (step === 2) return !formData.horarioDisponivel;
-    return false;
-  }
-
   return (
     <form onSubmit={handleSubmit}>
-      <Card className="w-full max-w-lg">
+      {/* ================================================================== */}
+      {/* A CORREÇÃO ESTÁ AQUI: w-[90vw] para mobile                         */}
+      {/* ================================================================== */}
+      <Card className="w-[90vw] max-w-lg md:w-full md:max-w-4xl border-0 md:border md:shadow-lg">
         <CardHeader>
-          <CardTitle>Faça seu Agendamento</CardTitle>
-          <CardDescription>Passo {step} de 3</CardDescription>
+          <CardTitle>Faça o seu Agendamento</CardTitle>
+          <CardDescription>Preencha os dados abaixo para garantir o seu horário.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6 min-h-[300px]">
-          {/* Etapa 1: Selecionar Profissional e Serviço */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>1. Escolha o Profissional</Label>
-                <Select onValueChange={(id) => handleFormChange('professionalId', id)} value={formData.professionalId ?? undefined}>
-                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>{profissionais.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.nome}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>2. Escolha o Serviço</Label>
-                <Select onValueChange={(id) => handleFormChange('service', servicos.find(s => s.id === Number(id)) || null)} value={formData.service ? String(formData.service.id) : undefined}>
-                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>{servicos.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.nome}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
+        
+        {/* Layout para Desktop */}
+        <CardContent className="hidden md:grid md:grid-cols-2 gap-8">
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Label>Profissional e Serviço</Label>
+              <Select onValueChange={(id) => handleFormChange('professionalId', id)} value={formData.professionalId ?? undefined}>
+                <SelectTrigger><SelectValue placeholder="Selecione o profissional..." /></SelectTrigger>
+                <SelectContent>{profissionais.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.nome}</SelectItem>)}</SelectContent>
+              </Select>
+              <Select onValueChange={(id) => handleFormChange('service', servicos.find(s => s.id === Number(id)) || null)} value={formData.service ? String(formData.service.id) : undefined} disabled={!formData.professionalId}>
+                <SelectTrigger><SelectValue placeholder="Selecione o serviço..." /></SelectTrigger>
+                <SelectContent>{servicos.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.nome}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
-          )}
-
-          {/* Etapa 2: Selecionar Data e Hora */}
-          {step === 2 && (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>3. Escolha a Data</Label>
-                <Calendar mode="single" selected={formData.date} onSelect={(d) => handleFormChange('date', d)} className="rounded-md border mx-auto" />
-              </div>
-              <div className="space-y-2">
-                <Label>Horários Disponíveis</Label>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                  {isLoading ? <p>Carregando...</p> : 
-                   horariosDisponiveis.length > 0 ? horariosDisponiveis.map((h) => (
-                    <Button type="button" key={h.id} variant={formData.horarioDisponivel?.id === h.id ? "default" : "outline"} onClick={() => handleFormChange('horarioDisponivel', h)}>
-                      {new Date(h.horario_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </Button>
-                  )) : <p className="text-xs text-gray-500 col-span-full">Nenhum horário disponível.</p>}
-                </div>
-              </div>
+              <Label>Seus Dados</Label>
+              <Input placeholder="Seu nome completo" value={formData.clientName} onChange={(e) => handleFormChange('clientName', e.target.value)} required />
+              <Input placeholder="Seu WhatsApp" value={formData.clientPhone} onChange={(e) => handleFormChange('clientPhone', e.target.value)} required />
             </div>
-          )}
-
-          {/* Etapa 3: Dados do Cliente */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">4. Seu Nome</Label>
-                <Input id="name" value={formData.clientName} onChange={(e) => handleFormChange('clientName', e.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">5. Seu WhatsApp</Label>
-                <Input id="phone" value={formData.clientPhone} onChange={(e) => handleFormChange('clientPhone', e.target.value)} required />
-              </div>
+          </div>
+          <div className="space-y-4">
+            <Label>Data e Horário</Label>
+            <Calendar mode="single" selected={formData.date} onSelect={(d) => handleFormChange('date', d)} className="rounded-md border" disabled={!formData.service} />
+            <div className="grid grid-cols-4 gap-2 pt-2 max-h-48 overflow-y-auto">
+              {isLoading ? <p className="col-span-4 text-center">Carregando...</p> : 
+               horariosDisponiveis.length > 0 ? horariosDisponiveis.map((h) => (
+                <Button type="button" key={h.id} variant={formData.horarioDisponivel?.id === h.id ? "default" : "outline"} onClick={() => handleFormChange('horarioDisponivel', h)}>
+                  {new Date(h.horario_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </Button>
+              )) : <p className="text-xs text-gray-500 col-span-4 text-center">Nenhum horário disponível.</p>}
             </div>
-          )}
+          </div>
         </CardContent>
-        <CardFooter className="flex justify-between">
-          {step > 1 ? <Button type="button" variant="outline" onClick={prevStep}>Voltar</Button> : <div></div>}
-          {step < 3 ? <Button type="button" onClick={nextStep} disabled={isNextDisabled()}>Próximo</Button> : null}
-          {step === 3 ? <Button type="submit" disabled={isLoading || !formData.clientName || !formData.clientPhone}>Confirmar Agendamento</Button> : null}
+
+        {/* Layout para Mobile */}
+        <CardContent className="md:hidden space-y-4">
+            <div className="space-y-2">
+              <Label>1. Selecione</Label>
+              <Select onValueChange={(id) => handleFormChange('professionalId', id)} value={formData.professionalId ?? undefined}>
+                <SelectTrigger className="w-full justify-start"><User className="mr-2 h-4 w-4" /> <SelectValue placeholder="Escolha o profissional..." /></SelectTrigger>
+                <SelectContent>{profissionais.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.nome}</SelectItem>)}</SelectContent>
+              </Select>
+              <Select onValueChange={(id) => handleFormChange('service', servicos.find(s => s.id === Number(id)) || null)} value={formData.service ? String(formData.service.id) : undefined} disabled={!formData.professionalId}>
+                <SelectTrigger className="w-full justify-start"><Scissors className="mr-2 h-4 w-4" /> <SelectValue placeholder="Escolha o serviço..." /></SelectTrigger>
+                <SelectContent>{servicos.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.nome}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>2. Escolha a Data e Hora</Label>
+              <Dialog open={isDateModalOpen} onOpenChange={setIsDateModalOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start font-normal" disabled={!formData.service}><CalendarDays className="mr-2 h-4 w-4" /> {formData.date ? formData.date.toLocaleDateString('pt-BR') : "Selecione a data"}</Button>
+                </DialogTrigger>
+                <DialogContent className="w-auto">
+                  <DialogHeader><DialogTitle>Selecione a Data</DialogTitle></DialogHeader>
+                  <Calendar mode="single" selected={formData.date} onSelect={(d) => { handleFormChange('date', d); setIsDateModalOpen(false); }} className="rounded-md" />
+                </DialogContent>
+              </Dialog>
+              <Select onValueChange={(horarioId) => handleFormChange('horarioDisponivel', horariosDisponiveis.find(h => h.id === Number(horarioId)) || null)} value={formData.horarioDisponivel ? String(formData.horarioDisponivel.id) : undefined} disabled={!formData.date}>
+                <SelectTrigger className="w-full justify-start"><Clock className="mr-2 h-4 w-4" /> <SelectValue placeholder="Escolha o horário..." /></SelectTrigger>
+                <SelectContent>
+                  {isLoading ? <div className="p-2">Carregando...</div> :
+                   horariosDisponiveis.map(h => <SelectItem key={h.id} value={String(h.id)}>{new Date(h.horario_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>3. Seus Dados</Label>
+              <Input placeholder="Seu nome completo" value={formData.clientName} onChange={(e) => handleFormChange('clientName', e.target.value)} required />
+              <Input placeholder="Seu WhatsApp" value={formData.clientPhone} onChange={(e) => handleFormChange('clientPhone', e.target.value)} required />
+            </div>
+        </CardContent>
+
+        <CardFooter>
+          <Button type="submit" className="w-full" disabled={isLoading || !formData.horarioDisponivel || !formData.clientName || !formData.clientPhone}>
+            {isLoading ? "Aguarde..." : "Confirmar Agendamento"}
+          </Button>
         </CardFooter>
       </Card>
     </form>
