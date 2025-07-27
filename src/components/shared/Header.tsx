@@ -3,13 +3,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Clock, HomeIcon } from "lucide-react"; // Ícones para a UI
+import { Calendar, Clock, HomeIcon, Users } from "lucide-react"; // Adicionado ícone Users
 
-// Define os links que aparecerão no cabeçalho
 const navLinks = [
   { name: "Agendar", href: "/agendar", icon: HomeIcon },
   { name: "Ver Agendamentos", href: "/meus-agendamentos", icon: Calendar },
   { name: "Gerenciar Horários", href: "/admin/horarios", icon: Clock },
+  // Novo link para a página de profissionais
+  { name: "Profissionais", href: "/admin/profissionais", icon: Users }, 
 ];
 
 export function Header() {
