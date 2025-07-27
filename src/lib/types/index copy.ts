@@ -4,7 +4,16 @@
 // TIPOS ENUM (Status)
 // ===================================
 
+/**
+ * Define os possíveis status de um agendamento.
+ * Corresponde ao ENUM 'status_agendamento' no Supabase.
+ */
 export type StatusAgendamento = 'confirmado' | 'cancelado' | 'concluido';
+
+/**
+ * Define os possíveis status de um horário disponível.
+ * Corresponde ao ENUM 'status_horario' no Supabase.
+ */
 export type StatusHorario = 'disponivel' | 'reservado';
 
 
@@ -18,8 +27,6 @@ export type StatusHorario = 'disponivel' | 'reservado';
 export interface Profissional {
   id: number;
   nome: string;
-  // A CORREÇÃO ESTÁ AQUI:
-  foto_url: string | null; // A foto é opcional, então pode ser string ou nula.
   created_at: string;
 }
 
@@ -72,5 +79,5 @@ export interface Agendamento {
 export type AgendamentoComServico = Omit<Agendamento, 'id_servico' | 'horario_fim' | 'telefone_cliente'> & {
   servicos: {
     nome: string;
-  } | null;
+  } | null; // O serviço pode ter sido deletado, então pode ser nulo.
 };

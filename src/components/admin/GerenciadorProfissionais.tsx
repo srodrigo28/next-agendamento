@@ -1,38 +1,83 @@
 // components/admin/GerenciadorProfissionais.tsx
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Profissional } from "@/lib/types";
+import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, 
-    AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PlusCircle, Trash2, Upload } from 'lucide-react';
+import Image from 'next/image';
 
 interface GerenciadorProfissionaisProps {
   profissionaisIniciais: Profissional[];
 }
 
+// ==================================================================
+// A NOVA FUNÇÃO DE CORREÇÃO ESTÁ AQUI
+// ==================================================================
+/**
+ * Remove caracteres especiais de um nome de arquivo para torná-lo seguro para upload.
+ * @param filename O nome original do arquivo.
+ * @returns O nome do arquivo sanitizado.
+ */
+const sanitizeFilename = (filename: string) => {
+  // Substitui qualquer caractere que não seja letra, número, ponto, underscore ou hífen por um underscore.
+  return filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+};
+
 export function GerenciadorProfissionais({ profissionaisIniciais }: GerenciadorProfissionaisProps) {
-  const [profissionais, setProfissionais] = useState(profissionaisIniciais);
-  const [nome, setNome] = useState('');
+  const [profissionais, setProfissionais] = useState<Profissional[]>(profissionaisIniciais);
   const [profissionalEditando, setProfissionalEditando] = useState<Profissional | null>(null);
+  const [nome, setNome] = useState('');
+  const [fotoFile, setFotoFile] = useState<File | null>(null);
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const supabase = createClient();
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setFotoFile(file);
+      setFotoPreview(URL.createObjectURL(file));
+    }
+  };
 
   const handleSave = async () => {
     setIsLoading(true);
-    const url = profissionalEditando ? '/api/profissionais' : '/api/profissionais';
-    const method = profissionalEditando ? 'PATCH' : 'POST';
-    const body = profissionalEditando ? JSON.stringify({ id: profissionalEditando.id, nome }) : JSON.stringify({ nome });
+    let foto_url = profissionalEditando?.foto_url ?? null;
 
     try {
+      if (fotoFile) {
+        // A sanitização é aplicada aqui antes de criar o caminho do arquivo
+        const sanitizedName = sanitizeFilename(fotoFile.name);
+        const filePath = `perfil/${Date.now()}_${sanitizedName}`;
+        
+        const { error: uploadError } = await supabase.storage.from('box').upload(filePath, fotoFile);
+        if (uploadError) throw uploadError;
+        
+        const { data: urlData } = supabase.storage.from('box').getPublicUrl(filePath);
+        foto_url = urlData.publicUrl;
+      }
+
+      const url = '/api/profissionais';
+      const method = profissionalEditando ? 'PATCH' : 'POST';
+      const body = JSON.stringify({ id: profissionalEditando?.id, nome, foto_url });
+
       const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body });
-      if (!response.ok) throw new Error("Falha ao salvar profissional.");
+      if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Falha ao salvar profissional.");
+      }
       
-      const profissionalSalvo = await response.json();
+      const profissionalSalvo: Profissional = await response.json();
 
       if (profissionalEditando) {
         setProfissionais(profissionais.map(p => p.id === profissionalSalvo.id ? profissionalSalvo : p));
@@ -42,102 +87,107 @@ export function GerenciadorProfissionais({ profissionaisIniciais }: GerenciadorP
       
       closeDialog();
     } catch (error) {
-      console.error(error);
-      alert((error as Error).message);
+      console.error("ERRO DETALHADO AO SALVAR:", error);
+      alert(`Falha ao salvar: ${(error as Error).message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async () => {
+    if (!profissionalEditando) return;
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/profissionais?id=${id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/profissionais?id=${profissionalEditando.id}`, { method: 'DELETE' });
       if (!response.ok) throw new Error("Falha ao excluir profissional.");
       
-      setProfissionais(profissionais.filter(p => p.id !== id));
+      setProfissionais(profissionais.filter(p => p.id !== profissionalEditando.id));
+      closeDialog();
     } catch (error) {
-      console.error(error);
       alert((error as Error).message);
     } finally {
       setIsLoading(false);
+      setIsAlertOpen(false);
     }
   };
 
   const openDialog = (profissional: Profissional | null = null) => {
     setProfissionalEditando(profissional);
-    setNome(profissional ? profissional.nome : '');
+    setNome(profissional?.nome ?? '');
+    setFotoPreview(profissional?.foto_url ?? null);
+    setFotoFile(null);
     setIsDialogOpen(true);
   };
 
-  const closeDialog = () => {
-    setIsDialogOpen(false);
-    setProfissionalEditando(null);
-    setNome('');
-  };
+  const closeDialog = () => setIsDialogOpen(false);
 
   return (
+    // O JSX permanece o mesmo
     <div className="w-full">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Gerenciar Profissionais</h1>
-        <Button onClick={() => openDialog()}>Adicionar Profissional</Button>
-      </div>
-
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead className="text-right w-[180px]">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {profissionais.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell className="font-medium">{p.nome}</TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => openDialog(p)}>Editar</Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm">Excluir</Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Essa ação não pode ser desfeita. Isso excluirá permanentemente o profissional.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(p.id)} disabled={isLoading}>
-                          {isLoading ? "Excluindo..." : "Excluir"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        {profissionais.map((p) => (
+          <div key={p.id} onClick={() => openDialog(p)} className="group cursor-pointer space-y-4">
+            <div className="aspect-square rounded-lg overflow-hidden relative">
+              <Image
+                src={p.foto_url || '/placeholder-perfil.jpg'}
+                alt={p.nome}
+                fill
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                onError={(e) => { e.currentTarget.src = '/placeholder-perfil.jpg'; }}
+              />
+            </div>
+            <h3 className="text-center text-lg font-medium">{p.nome}</h3>
+          </div>
+        ))}
+        <div onClick={() => openDialog()} className="group cursor-pointer flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400 transition-colors">
+            <PlusCircle className="h-12 w-12 text-gray-400 group-hover:text-gray-500" />
+            <p className="mt-2 text-sm text-gray-500">Adicionar Profissional</p>
+        </div>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle>{profissionalEditando ? 'Editar Profissional' : 'Adicionar Profissional'}</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 space-y-2">
-            <Label htmlFor="nome">Nome do Profissional</Label>
-            <Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+        <DialogContent>
+          <DialogHeader><DialogTitle>{profissionalEditando ? 'Editar Profissional' : 'Adicionar Profissional'}</DialogTitle></DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="relative w-48 h-48 mx-auto">
+              <Image
+                src={fotoPreview || '/placeholder-perfil.jpg'}
+                alt="Preview"
+                fill
+                className="object-cover rounded-full"
+                onError={(e) => { e.currentTarget.src = '/placeholder-perfil.jpg'; }}
+              />
+              <Button size="icon" className="absolute bottom-2 right-2 rounded-full" onClick={() => fileInputRef.current?.click()}>
+                <Upload className="h-4 w-4" />
+              </Button>
+              <Input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nome">Nome do Profissional</Label>
+              <Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={isLoading}>{isLoading ? 'Salvando...' : 'Salvar'}</Button>
-          </DialogFooter>
+          <div className="flex justify-between">
+            {profissionalEditando && (
+              <Button variant="destructive" onClick={() => setIsAlertOpen(true)}><Trash2 className="mr-2 h-4 w-4"/> Excluir</Button>
+            )}
+            <div className="flex space-x-2 ml-auto">
+              <Button variant="outline" onClick={closeDialog}>Cancelar</Button>
+              <Button onClick={handleSave} disabled={isLoading}>{isLoading ? 'Salvando...' : 'Salvar'}</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>Você tem certeza?</AlertDialogTitle><AlertDialogDescription>Essa ação não pode ser desfeita e excluirá o profissional e sua foto.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isLoading}>{isLoading ? "Excluindo..." : "Confirmar Exclusão"}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
