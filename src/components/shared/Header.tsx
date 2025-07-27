@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Clock, HomeIcon, Users, Menu, X } from "lucide-react";
+import { Calendar, Clock, HomeIcon, Users, ClipboardList, Menu, X } from "lucide-react"; // Adicionado ícone ClipboardList
 import { useState } from "react";
 import { Button } from "../ui/button";
 
@@ -12,6 +12,8 @@ const navLinks = [
   { name: "Ver Agendamentos", href: "/meus-agendamentos", icon: Calendar },
   { name: "Gerenciar Horários", href: "/admin/horarios", icon: Clock },
   { name: "Profissionais", href: "/admin/profissionais", icon: Users },
+  // Novo link para a página de serviços
+  { name: "Serviços", href: "/admin/servicos", icon: ClipboardList }, 
 ];
 
 export function Header() {
@@ -19,9 +21,8 @@ export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="sticky px-10 top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 max-w-screen-2xl items-center justify-between">
-        {/* Logo */}
         <Link href="/agendar" className="flex items-center space-x-2">
           <span className="font-bold">Salão App</span>
         </Link>
@@ -58,7 +59,7 @@ export function Header() {
                 key={link.name}
                 href={link.href}
                 className="flex items-center py-3 text-lg font-medium"
-                onClick={() => setIsMenuOpen(false)} // Fecha o menu ao clicar
+                onClick={() => setIsMenuOpen(false)}
               >
                 <link.icon className="mr-3 h-5 w-5" />
                 {link.name}
