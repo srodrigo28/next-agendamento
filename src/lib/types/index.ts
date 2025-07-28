@@ -1,31 +1,17 @@
 // types/index.ts
 
-// ===================================
-// TIPOS ENUM (Status)
-// ===================================
+// ... (outros tipos permanecem os mesmos)
 
 export type StatusAgendamento = 'confirmado' | 'cancelado' | 'concluido';
 export type StatusHorario = 'disponivel' | 'reservado';
 
-
-// ===================================
-// INTERFACES BASE (Espelham as tabelas do DB)
-// ===================================
-
-/**
- * Representa a tabela 'profissionais'.
- */
 export interface Profissional {
   id: number;
   nome: string;
-  // A CORREÇÃO ESTÁ AQUI:
-  foto_url: string | null; // A foto é opcional, então pode ser string ou nula.
+  foto_url: string | null;
   created_at: string;
 }
 
-/**
- * Representa a tabela 'servicos'.
- */
 export interface Servico {
   id: number;
   nome: string;
@@ -35,9 +21,6 @@ export interface Servico {
   created_at: string;
 }
 
-/**
- * Representa a tabela 'horarios_disponiveis'.
- */
 export interface HorarioDisponivel {
   id: number;
   id_profissional: number;
@@ -46,9 +29,6 @@ export interface HorarioDisponivel {
   created_at: string;
 }
 
-/**
- * Representa a tabela 'agendamentos'.
- */
 export interface Agendamento {
   id: number;
   id_servico: number;
@@ -60,16 +40,14 @@ export interface Agendamento {
   created_at: string;
 }
 
-
-// ===================================
-// TIPOS DERIVADOS (Para Consultas e Componentes)
-// ===================================
-
+// ==================================================================
+// A CORREÇÃO ESTÁ AQUI
+// ==================================================================
 /**
- * Representa um agendamento quando ele é retornado com o nome do serviço junto (JOIN).
- * Usado na página 'meus-agendamentos'.
+ * Representa um agendamento com o nome do serviço e o telefone do cliente.
+ * Removemos 'telefone_cliente' da lista de campos a serem omitidos.
  */
-export type AgendamentoComServico = Omit<Agendamento, 'id_servico' | 'horario_fim' | 'telefone_cliente'> & {
+export type AgendamentoComServico = Omit<Agendamento, 'id_servico' | 'horario_fim'> & {
   servicos: {
     nome: string;
   } | null;

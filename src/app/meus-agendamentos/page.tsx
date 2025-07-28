@@ -13,7 +13,7 @@ export default async function MeusAgendamentosPage() {
 
   const { data: agendamentos, error } = await supabase
     .from('agendamentos')
-    .select(`id, horario_inicio, nome_cliente, status, servicos ( nome )`)
+    .select(`id, horario_inicio, nome_cliente, status, telefone_cliente, servicos ( nome )`)
     .order('horario_inicio', { ascending: false })
     .returns<AgendamentoComServico[]>();
 
@@ -32,7 +32,8 @@ export default async function MeusAgendamentosPage() {
             <TableRow>
               <TableHead>Data e Hora</TableHead>
               <TableHead>Cliente</TableHead>
-              <TableHead>Serviço</TableHead>
+              <TableHead>Serviços</TableHead>
+              <TableHead>Telefone</TableHead>
               <TableHead className="text-right">Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -42,7 +43,8 @@ export default async function MeusAgendamentosPage() {
                 <TableCell>{new Date(agendamento.horario_inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</TableCell>
                 <TableCell>{agendamento.nome_cliente}</TableCell>
                 <TableCell>{agendamento.servicos?.nome ?? 'N/A'}</TableCell>
-                <TableCell className="text-right"><Badge>{agendamento.status}</Badge></TableCell>
+                <TableCell>{agendamento.telefone_cliente}</TableCell>
+                <TableCell className="text-right"><Badge className="bg-sky-500 text-white py-1 px-2 cursor-pointer">{agendamento.status}</Badge></TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -54,16 +56,18 @@ export default async function MeusAgendamentosPage() {
         {agendamentos.map((agendamento) => (
           <Card key={agendamento.id}>
             <CardHeader>
-              <CardTitle className="text-base">{agendamento.nome_cliente}</CardTitle>
+              <CardTitle className="text-base flex items-center justify-between">{agendamento.nome_cliente}
               <p className="text-sm text-muted-foreground">
-                {new Date(agendamento.horario_inicio).toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'short' })}
+                <Badge className="bg-green-400 text-white px-2 cursor-pointer">{agendamento.telefone_cliente}</Badge>
               </p>
+              </CardTitle>
+              <p>{new Date(agendamento.horario_inicio).toLocaleString('pt-BR', { dateStyle: 'medium', timeStyle: 'short' })}</p>
             </CardHeader>
             <CardContent className="space-y-1 text-sm">
               <p><strong>Serviço:</strong> {agendamento.servicos?.nome ?? 'N/A'}</p>
               <div className="flex justify-between items-center pt-2">
                 <strong>Status:</strong>
-                <Badge>{agendamento.status}</Badge>
+                <Badge className="bg-sky-500 text-white py-1 px-2 cursor-pointer">{agendamento.status}</Badge>
               </div>
             </CardContent>
           </Card>
